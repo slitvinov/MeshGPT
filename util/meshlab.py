@@ -9,5 +9,9 @@ def meshlab_proc(meshpath):
     ms.meshing_remove_null_faces()
     ms.meshing_remove_duplicate_vertices()
     ms.meshing_remove_unreferenced_vertices()
-    ms.save_current_mesh(str(meshpath), save_vertex_color=False, save_vertex_coord=False, save_face_color=False, save_wedge_texcoord=False)
+    ms.save_current_mesh(str(meshpath),
+                         save_vertex_color=False,
+                         save_vertex_coord=False,
+                         save_face_color=False,
+                         save_wedge_texcoord=False)
     ms.clear()

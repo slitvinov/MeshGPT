@@ -23,9 +23,12 @@ from pytorch_lightning import seed_everything
 def main(config, mode):
     seed_everything(42)
     device = torch.device('cuda:0')
-    vq_cfg = omegaconf.OmegaConf.load(Path(config.vq_resume).parents[1] / "config.yaml")
-    dataset = TriangleNodesWithFacesAndSequenceIndices(config, 'train', True, True , config.ft_category)
-    prompt_num_faces  = 4
+    vq_cfg = omegaconf.OmegaConf.load(
+        Path(config.vq_resume).parents[1] / "config.yaml")
+    dataset = TriangleNodesWithFacesAndSequenceIndices(config, 'train', True,
+                                                       True,
+                                                       config.ft_category)
+    prompt_num_faces = 4
     output_dir_image = Path(f'runs/{config.experiment}/inf_image_{mode}')
     output_dir_image.mkdir(exist_ok=True, parents=True)
     output_dir_mesh = Path(f'runs/{config.experiment}/inf_mesh_{mode}')
@@ -47,38 +50,46 @@ def main(config, mode):
 
         data = dataset.get(random.randint(0, len(dataset) - 1))
         soup_sequence, face_in_idx, face_out_idx, target = sequencer.get_completion_sequence(
-            data.x.to(device),
-            data.edge_index.to(device),
-            data.faces.to(device),
-            data.num_vertices,
-            1 + 6 * prompt_num_faces
-        )
+            data.x.to(device), data.edge_index.to(device),
+            data.faces.to(device), data.num_vertices, 1 + 6 * prompt_num_faces)
 
         y = None
 
         if mode == "topp":
             # more diversity but more change of bad sequences
-            y = model.generate(
-                soup_sequence, face_in_idx, face_out_idx, sequencer, config.max_val_tokens,
-                temperature=config.temperature, top_k=config.top_k_tokens, top_p=config.top_p, use_kv_cache=True
-            )
+            y = model.generate(soup_sequence,
+                               face_in_idx,
+                               face_out_idx,
+                               sequencer,
+                               config.max_val_tokens,
+                               temperature=config.temperature,
+                               top_k=config.top_k_tokens,
+                               top_p=config.top_p,
+                               use_kv_cache=True)
         elif mode == "beam":
             # less diversity but more robust
-            y = model.generate_with_beamsearch(
-                soup_sequence, face_in_idx, face_out_idx, sequencer, config.max_val_tokens, use_kv_cache=True, beam_width=6
-            )
+            y = model.generate_with_beamsearch(soup_sequence,
+                                               face_in_idx,
+                                               face_out_idx,
+                                               sequencer,
+                                               config.max_val_tokens,
+                                               use_kv_cache=True,
+                                               beam_width=6)
 
         if y is None:
             continue
 
         gen_vertices, gen_faces = sequencer.decode(y[0], decoder)
-        
+
         try:
-            mesh = trimesh.Trimesh(vertices=gen_vertices, faces=gen_faces, process=False)
+            mesh = trimesh.Trimesh(vertices=gen_vertices,
+                                   faces=gen_faces,
+                                   process=False)
             if pnet.classifier_guided_filter(mesh, config.ft_category):
                 mesh.export(output_dir_mesh / f"{k:06d}.obj")
                 meshlab_proc(output_dir_mesh / f"{k:06d}.obj")
-                plot_vertices_and_faces(gen_vertices, gen_faces, output_dir_image / f"{k:06d}.jpg")
+                plot_vertices_and_faces(gen_vertices, gen_faces,
+                                        output_dir_image / f"{k:06d}.jpg")
                 print('Generated mesh', k + 1)
                 k = k + 1
         except Exception as e:
@@ -87,7 +98,8 @@ def main(config, mode):
 
 
 if __name__ == "__main__":
-    cfg = omegaconf.OmegaConf.load(Path(sys.argv[1]).parents[1] / "config.yaml")
+    cfg = omegaconf.OmegaConf.load(
+        Path(sys.argv[1]).parents[1] / "config.yaml")
     cfg.resume = sys.argv[1]
     cfg.padding = 0.0
     cfg.num_val_samples = int(sys.argv[3])

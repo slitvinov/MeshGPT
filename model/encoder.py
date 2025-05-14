@@ -8,7 +8,12 @@ from util.positional_encoding import get_embedder
 
 class GraphEncoder(nn.Module):
 
-    def __init__(self, no_max_pool=True, aggr='mean', graph_conv="edge", use_point_features=False, output_dim=512):
+    def __init__(self,
+                 no_max_pool=True,
+                 aggr='mean',
+                 graph_conv="edge",
+                 use_point_features=False,
+                 output_dim=512):
         super().__init__()
         self.no_max_pool = no_max_pool
         self.use_point_features = use_point_features
@@ -36,7 +41,8 @@ class GraphEncoder(nn.Module):
         x_an_0 = x[:, 13:14]
         x_an_1 = x[:, 14:15]
         x_an_2 = x[:, 15:]
-        x = torch.cat([x_0, x_1, x_2, x_n, x_ar, x_an_0, x_an_1, x_an_2], dim=-1)
+        x = torch.cat([x_0, x_1, x_2, x_n, x_ar, x_an_0, x_an_1, x_an_2],
+                      dim=-1)
         x = self.relu(self.norm1(self.gc1(x, edge_index)))
         x = self.norm2(self.gc2(x, edge_index))
         point_features = x
@@ -75,9 +81,14 @@ class GraphEncoderTriangleSoup(nn.Module):
     def distribute_features(features, face_indices, num_vertices):
         N, F = features.shape
         features = features.reshape(N * 3, F // 3)
-        assert features.shape[0] == face_indices.shape[0] * face_indices.shape[1], "Features and face indices must match in size"
-        vertex_features = torch.zeros([num_vertices, features.shape[1]], device=features.device)
-        torch_scatter.scatter_mean(features, face_indices.reshape(-1), out=vertex_features, dim=0)
+        assert features.shape[0] == face_indices.shape[0] * face_indices.shape[
+            1], "Features and face indices must match in size"
+        vertex_features = torch.zeros([num_vertices, features.shape[1]],
+                                      device=features.device)
+        torch_scatter.scatter_mean(features,
+                                   face_indices.reshape(-1),
+                                   out=vertex_features,
+                                   dim=0)
         distributed_features = vertex_features[face_indices.reshape(-1), :]
         distributed_features = distributed_features.reshape(N, F)
         return distributed_features

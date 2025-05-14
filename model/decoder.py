@@ -91,14 +91,26 @@ class Bottleneck(nn.Module):
 
 class ResNetDecoder(nn.Module):
 
-    def __init__(self, in_feats, num_tokens, block, layers, zero_init_residual=False, width_per_group=64, ce_output=True):
+    def __init__(self,
+                 in_feats,
+                 num_tokens,
+                 block,
+                 layers,
+                 zero_init_residual=False,
+                 width_per_group=64,
+                 ce_output=True):
         super().__init__()
         norm_layer = nn.BatchNorm1d
         self._norm_layer = norm_layer
         self.num_tokens = num_tokens
         self.inplanes = 512
         self.base_width = width_per_group
-        self.conv1 = nn.Conv1d(in_feats, self.inplanes, kernel_size=7, stride=1, padding=3, bias=False)
+        self.conv1 = nn.Conv1d(in_feats,
+                               self.inplanes,
+                               kernel_size=7,
+                               stride=1,
+                               padding=3,
+                               bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 512, layers[0])
@@ -114,7 +126,9 @@ class ResNetDecoder(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight,
+                                        mode="fan_out",
+                                        nonlinearity="relu")
             elif isinstance(m, (nn.BatchNorm1d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -125,9 +139,11 @@ class ResNetDecoder(nn.Module):
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck) and m.bn3.weight is not None:
-                    nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.bn3.weight,
+                                      0)  # type: ignore[arg-type]
                 elif isinstance(m, BasicBlock) and m.bn2.weight is not None:
-                    nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.bn2.weight,
+                                      0)  # type: ignore[arg-type]
 
     def _make_layer(self, block, planes: int, blocks: int):
         layers = [block(self.inplanes, planes, self.base_width)]
@@ -138,8 +154,7 @@ class ResNetDecoder(nn.Module):
                     self.inplanes,
                     planes,
                     base_width=self.base_width,
-                )
-            )
+                ))
         return nn.Sequential(*layers)
 
     def _forward_impl(self, x):
@@ -165,13 +180,23 @@ class ResNetDecoder(nn.Module):
 
 class ResNetEncoder(nn.Module):
 
-    def __init__(self, in_feats, block, layers, zero_init_residual=False, width_per_group=64):
+    def __init__(self,
+                 in_feats,
+                 block,
+                 layers,
+                 zero_init_residual=False,
+                 width_per_group=64):
         super().__init__()
         norm_layer = nn.BatchNorm1d
         self._norm_layer = norm_layer
         self.inplanes = 128
         self.base_width = width_per_group
-        self.conv1 = nn.Conv1d(in_feats, self.inplanes, kernel_size=7, stride=1, padding=3, bias=False)
+        self.conv1 = nn.Conv1d(in_feats,
+                               self.inplanes,
+                               kernel_size=7,
+                               stride=1,
+                               padding=3,
+                               bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 128, layers[0])
@@ -183,7 +208,9 @@ class ResNetEncoder(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight,
+                                        mode="fan_out",
+                                        nonlinearity="relu")
             elif isinstance(m, (nn.BatchNorm1d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -194,9 +221,11 @@ class ResNetEncoder(nn.Module):
         if zero_init_residual:
             for m in self.modules():
                 if isinstance(m, Bottleneck) and m.bn3.weight is not None:
-                    nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.bn3.weight,
+                                      0)  # type: ignore[arg-type]
                 elif isinstance(m, BasicBlock) and m.bn2.weight is not None:
-                    nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
+                    nn.init.constant_(m.bn2.weight,
+                                      0)  # type: ignore[arg-type]
 
     def _make_layer(self, block, planes: int, blocks: int):
         layers = [block(self.inplanes, planes, self.base_width)]
@@ -207,8 +236,7 @@ class ResNetEncoder(nn.Module):
                     self.inplanes,
                     planes,
                     base_width=self.base_width,
-                )
-            )
+                ))
         return nn.Sequential(*layers)
 
     def _forward_impl(self, x):
@@ -230,19 +258,31 @@ class ResNetEncoder(nn.Module):
 
 
 def resnet18_decoder(in_feats, num_tokens, ce_output=True):
-    return ResNetDecoder(in_feats, num_tokens, BasicBlock, [2, 2, 2, 2], zero_init_residual=True, ce_output=ce_output)
+    return ResNetDecoder(in_feats,
+                         num_tokens,
+                         BasicBlock, [2, 2, 2, 2],
+                         zero_init_residual=True,
+                         ce_output=ce_output)
 
 
 def resnet34_decoder(in_feats, num_tokens, ce_output=True):
-    return ResNetDecoder(in_feats, num_tokens, BasicBlock, [3, 4, 6, 3], zero_init_residual=True, ce_output=ce_output)
+    return ResNetDecoder(in_feats,
+                         num_tokens,
+                         BasicBlock, [3, 4, 6, 3],
+                         zero_init_residual=True,
+                         ce_output=ce_output)
 
 
 def resnet18_encoder(in_feats):
-    return ResNetEncoder(in_feats, BasicBlock, [2, 2, 2, 2], zero_init_residual=True)
+    return ResNetEncoder(in_feats,
+                         BasicBlock, [2, 2, 2, 2],
+                         zero_init_residual=True)
 
 
 def resnet34_encoder(in_feats):
-    return ResNetEncoder(in_feats, BasicBlock, [3, 4, 6, 3], zero_init_residual=True)
+    return ResNetEncoder(in_feats,
+                         BasicBlock, [3, 4, 6, 3],
+                         zero_init_residual=True)
 
 
 def test_resnet_decoder():

@@ -34,7 +34,8 @@ def quit_handler(sig, frame):
     sys.exit(1)
 
 
-def register_debug_signal_handlers(sig=signal.SIGUSR1, handler=print_traceback_handler):
+def register_debug_signal_handlers(sig=signal.SIGUSR1,
+                                   handler=print_traceback_handler):
     print(f'Setting signal {sig} handler {handler}')
     signal.signal(sig, handler)
 
@@ -70,7 +71,9 @@ def create_trainer(name, config):
     seed_everything(1337 + config.seed)
     torch.backends.cuda.matmul.allow_tf32 = True  # type: ignore # allow tf32 on matmul
     torch.backends.cudnn.allow_tf32 = True  # type: ignore # allow tf32 on cudnn
-    torch.multiprocessing.set_sharing_strategy('file_system')  # possible fix for the "OSError: too many files" exception
+    torch.multiprocessing.set_sharing_strategy(
+        'file_system'
+    )  # possible fix for the "OSError: too many files" exception
 
     register_debug_signal_handlers()
     register_quit_signal_handlers()
@@ -80,9 +83,13 @@ def create_trainer(name, config):
 
     # use wandb logger instead
     if config.logger == 'wandb':
-        logger = WandbLogger(project=f'{name}{config.suffix}', name=config.experiment, id=config.experiment, settings=wandb.Settings(start_method='thread'))
+        logger = WandbLogger(project=f'{name}{config.suffix}',
+                             name=config.experiment,
+                             id=config.experiment,
+                             settings=wandb.Settings(start_method='thread'))
     else:
-        logger = TensorBoardLogger(name='tb', save_dir=(Path("runs") / config.experiment))
+        logger = TensorBoardLogger(name='tb',
+                                   save_dir=(Path("runs") / config.experiment))
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=(Path("runs") / config.experiment / "checkpoints"),
@@ -152,7 +159,11 @@ def step(opt, modules):
     for module in modules:
         for param in module.parameters():
             if param.grad is not None:
-                torch.nan_to_num(param.grad, nan=0, posinf=1e5, neginf=-1e5, out=param.grad)
+                torch.nan_to_num(param.grad,
+                                 nan=0,
+                                 posinf=1e5,
+                                 neginf=-1e5,
+                                 out=param.grad)
         torch.nn.utils.clip_grad_norm_(module.parameters(), 1)  # type: ignore
     opt.step()
 
@@ -164,38 +175,52 @@ def create_conv_batch(encoded_features, batch, batch_size, device):
         features = encoded_features[batch == k, :].T.contiguous().unsqueeze(0)
         max_sequence_length = max(max_sequence_length, features.shape[2])
         conv_input.append(features)
-        conv_mask.append(torch.ones([features.shape[2]], device=device, dtype=torch.bool))
+        conv_mask.append(
+            torch.ones([features.shape[2]], device=device, dtype=torch.bool))
     for k in range(batch_size):
-        conv_input[k] = torch.nn.functional.pad(conv_input[k], (0, max_sequence_length - conv_input[k].shape[2]), 'replicate')
-        conv_mask[k] = torch.nn.functional.pad(conv_mask[k], (0, max_sequence_length - conv_mask[k].shape[0]), 'constant', False)
+        conv_input[k] = torch.nn.functional.pad(
+            conv_input[k], (0, max_sequence_length - conv_input[k].shape[2]),
+            'replicate')
+        conv_mask[k] = torch.nn.functional.pad(
+            conv_mask[k], (0, max_sequence_length - conv_mask[k].shape[0]),
+            'constant', False)
     conv_input = torch.cat(conv_input, dim=0)
     conv_mask = torch.cat(conv_mask, dim=0)
     return conv_input, conv_mask
 
 
 def get_rvqvae_v0_all(config, resume):
-    encoder, pre_quant, post_quant, vq = get_rvqvae_v0_encoder_vq(config, resume)
+    encoder, pre_quant, post_quant, vq = get_rvqvae_v0_encoder_vq(
+        config, resume)
     decoder = get_rvqvae_v0_decoder(config, resume)
     return encoder, decoder, pre_quant, post_quant, vq
 
 
 def get_rvqvae_v0_encoder_vq(config, resume):
     state_dict = torch.load(resume, map_location="cpu")["state_dict"]
-    encoder = GraphEncoder(no_max_pool=config.g_no_max_pool, aggr=config.g_aggr, graph_conv=config.graph_conv, use_point_features=config.use_point_feats)
+    encoder = GraphEncoder(no_max_pool=config.g_no_max_pool,
+                           aggr=config.g_aggr,
+                           graph_conv=config.graph_conv,
+                           use_point_features=config.use_point_feats)
     pre_quant = torch.nn.Linear(512, config.embed_dim)
     post_quant = torch.nn.Linear(config.embed_dim, 512)
 
-    encoder.load_state_dict(get_parameters_from_state_dict(state_dict, "encoder"))
-    pre_quant.load_state_dict(get_parameters_from_state_dict(state_dict, "pre_quant"))
-    post_quant.load_state_dict(get_parameters_from_state_dict(state_dict, "post_quant"))
+    encoder.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "encoder"))
+    pre_quant.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "pre_quant"))
+    post_quant.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "post_quant"))
 
     vq = ResidualVQ(
         dim=config.embed_dim,
         codebook_size=config.n_embed,  # codebook size
         num_quantizers=config.embed_levels,
-        commitment_weight=config.embed_loss_weight,  # the weight on the commitment loss
+        commitment_weight=config.
+        embed_loss_weight,  # the weight on the commitment loss
         stochastic_sample_codes=True,
-        sample_codebook_temp=0.1,  # temperature for stochastically sampling codes, 0 would be equivalent to non-stochastic
+        sample_codebook_temp=
+        0.1,  # temperature for stochastically sampling codes, 0 would be equivalent to non-stochastic
         shared_codebook=config.embed_share,
         decay=config.code_decay,
     )
@@ -206,28 +231,38 @@ def get_rvqvae_v0_encoder_vq(config, resume):
 def get_rvqvae_v0_decoder(config, resume, device=torch.device("cpu")):
     state_dict = torch.load(resume, map_location="cpu")["state_dict"]
     decoder = resnet34_decoder(512, config.num_tokens - 2, config.ce_output)
-    decoder.load_state_dict(get_parameters_from_state_dict(state_dict, "decoder"))
+    decoder.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "decoder"))
     decoder = decoder.to(device).eval()
     return decoder
 
 
 def get_rvqvae_v1_encoder_vq(config, resume):
     state_dict = torch.load(resume, map_location="cpu")["state_dict"]
-    encoder = GraphEncoder(no_max_pool=config.g_no_max_pool, aggr=config.g_aggr, graph_conv=config.graph_conv, use_point_features=config.use_point_feats, output_dim=576)
+    encoder = GraphEncoder(no_max_pool=config.g_no_max_pool,
+                           aggr=config.g_aggr,
+                           graph_conv=config.graph_conv,
+                           use_point_features=config.use_point_feats,
+                           output_dim=576)
     pre_quant = torch.nn.Linear(192, config.embed_dim)
     post_quant = torch.nn.Linear(config.embed_dim * 3, 512)
 
-    encoder.load_state_dict(get_parameters_from_state_dict(state_dict, "encoder"))
-    pre_quant.load_state_dict(get_parameters_from_state_dict(state_dict, "pre_quant"))
-    post_quant.load_state_dict(get_parameters_from_state_dict(state_dict, "post_quant"))
+    encoder.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "encoder"))
+    pre_quant.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "pre_quant"))
+    post_quant.load_state_dict(
+        get_parameters_from_state_dict(state_dict, "post_quant"))
 
     vq = ResidualVQ(
         dim=config.embed_dim,
         codebook_size=config.n_embed,  # codebook size
         num_quantizers=config.embed_levels,
-        commitment_weight=config.embed_loss_weight,  # the weight on the commitment loss
+        commitment_weight=config.
+        embed_loss_weight,  # the weight on the commitment loss
         stochastic_sample_codes=True,
-        sample_codebook_temp=0.1,  # temperature for stochastically sampling codes, 0 would be equivalent to non-stochastic
+        sample_codebook_temp=
+        0.1,  # temperature for stochastically sampling codes, 0 would be equivalent to non-stochastic
         shared_codebook=config.embed_share,
         decay=config.code_decay,
     )
@@ -236,6 +271,7 @@ def get_rvqvae_v1_encoder_vq(config, resume):
 
 
 def get_rvqvae_v1_all(config, resume):
-    encoder, pre_quant, post_quant, vq = get_rvqvae_v1_encoder_vq(config, resume)
+    encoder, pre_quant, post_quant, vq = get_rvqvae_v1_encoder_vq(
+        config, resume)
     decoder = get_rvqvae_v0_decoder(config, resume)
     return encoder, decoder, pre_quant, post_quant, vq

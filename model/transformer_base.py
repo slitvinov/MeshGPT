@@ -5,7 +5,7 @@ from model.nanogpt import configure_optimizers
 
 
 class TransformerBase(nn.Module):
-    
+
     def __init__(self):
         super().__init__()
 
@@ -16,7 +16,7 @@ class TransformerBase(nn.Module):
         The token embeddings would too, except due to the parameter sharing these
         params are actually used as weights in the final layer, so we include them.
         """
-        n_params = sum(p.numel() for n,p in self.named_parameters())
+        n_params = sum(p.numel() for n, p in self.named_parameters())
         return n_params
 
     def _init_weights(self, module):
@@ -27,5 +27,7 @@ class TransformerBase(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
-        return configure_optimizers(self.named_parameters(), weight_decay, learning_rate, betas, device_type)
+    def configure_optimizers(self, weight_decay, learning_rate, betas,
+                             device_type):
+        return configure_optimizers(self.named_parameters(), weight_decay,
+                                    learning_rate, betas, device_type)

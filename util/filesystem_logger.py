@@ -23,7 +23,9 @@ class FilesystemLogger(Logger):
     def log_hyperparams(self, params: argparse.Namespace):
         pass
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+    def log_metrics(self,
+                    metrics: Dict[str, float],
+                    step: Optional[int] = None):
         pass
 
     def __init__(self, experiment_config, **_kwargs):
@@ -41,17 +43,27 @@ class FilesystemLogger(Logger):
             experiment_dir = Path("runs", self.experiment_config["experiment"])
             experiment_dir.mkdir(exist_ok=True, parents=True)
 
-            src_folders = ['config', 'model', 'tests', 'trainer', 'util', 'visualizer', 'dataset']
+            src_folders = [
+                'config', 'model', 'tests', 'trainer', 'util', 'visualizer',
+                'dataset'
+            ]
             sources = []
             for src in src_folders:
                 sources.extend(list(Path(".").glob(f'{src}/**/*')))
 
-            files_to_copy = [x for x in sources if x.suffix in [".py", ".pyx", ".txt", ".so", ".pyd", ".h", ".cu", ".c", '.cpp', ".html"] and x.parts[0] != "runs" and x.parts[0] != "wandb"]
+            files_to_copy = [
+                x for x in sources if x.suffix in [
+                    ".py", ".pyx", ".txt", ".so", ".pyd", ".h", ".cu", ".c",
+                    '.cpp', ".html"
+                ] and x.parts[0] != "runs" and x.parts[0] != "wandb"
+            ]
 
             for f in files_to_copy:
-                Path(experiment_dir, "code", f).parents[0].mkdir(parents=True, exist_ok=True)
+                Path(experiment_dir, "code", f).parents[0].mkdir(parents=True,
+                                                                 exist_ok=True)
                 shutil.copyfile(f, Path(experiment_dir, "code", f))
 
-            Path(experiment_dir, "config.yaml").write_text(OmegaConf.to_yaml(self.experiment_config))
+            Path(experiment_dir, "config.yaml").write_text(
+                OmegaConf.to_yaml(self.experiment_config))
 
         return self._experiment

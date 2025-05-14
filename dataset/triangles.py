@@ -21,7 +21,14 @@ from torch_geometric.loader.dataloader import Collater as GeometricCollator
 
 class TriangleNodes(GeometricDataset):
 
-    def __init__(self, config, split, scale_augment, shift_augment, force_category, use_start_stop=False, only_backward_edges=False):
+    def __init__(self,
+                 config,
+                 split,
+                 scale_augment,
+                 shift_augment,
+                 force_category,
+                 use_start_stop=False,
+                 only_backward_edges=False):
         super().__init__()
         data_path = Path(config.dataset_root)
         self.cached_vertices = []
@@ -38,9 +45,21 @@ class TriangleNodes(GeometricDataset):
             data = pickle.load(fptr)
             if force_category is not None:
                 for s in ['train', 'val']:
-                    data[f'vertices_{s}'] = [data[f'vertices_{s}'][i] for i in range(len(data[f'vertices_{s}'])) if data[f'name_{s}'][i].split('_')[0] == force_category]
-                    data[f'faces_{s}'] = [data[f'faces_{s}'][i] for i in range(len(data[f'faces_{s}'])) if data[f'name_{s}'][i].split('_')[0] == force_category]
-                    data[f'name_{s}'] = [data[f'name_{s}'][i] for i in range(len(data[f'name_{s}'])) if data[f'name_{s}'][i].split('_')[0] == force_category]
+                    data[f'vertices_{s}'] = [
+                        data[f'vertices_{s}'][i]
+                        for i in range(len(data[f'vertices_{s}']))
+                        if data[f'name_{s}'][i].split('_')[0] == force_category
+                    ]
+                    data[f'faces_{s}'] = [
+                        data[f'faces_{s}'][i]
+                        for i in range(len(data[f'faces_{s}']))
+                        if data[f'name_{s}'][i].split('_')[0] == force_category
+                    ]
+                    data[f'name_{s}'] = [
+                        data[f'name_{s}'][i]
+                        for i in range(len(data[f'name_{s}']))
+                        if data[f'name_{s}'][i].split('_')[0] == force_category
+                    ]
                 if len(data[f'vertices_val']) == 0:
                     data[f'vertices_val'] = data[f'vertices_train']
                     data[f'faces_val'] = data[f'faces_train']
@@ -72,45 +91,69 @@ class TriangleNodes(GeometricDataset):
                 x_lims = (0.75, 1.25)
                 y_lims = (0.75, 1.25)
                 z_lims = (0.75, 1.25)
-            vertices = scale_vertices(vertices, x_lims=x_lims, y_lims=y_lims, z_lims=z_lims)
+            vertices = scale_vertices(vertices,
+                                      x_lims=x_lims,
+                                      y_lims=y_lims,
+                                      z_lims=z_lims)
         vertices = normalize_vertices(vertices)
         if self.shift_augment:
             vertices = shift_vertices(vertices)
-        triangles, normals, areas, angles, vertices, faces = create_feature_stack(vertices, faces, self.num_tokens)
+        triangles, normals, areas, angles, vertices, faces = create_feature_stack(
+            vertices, faces, self.num_tokens)
         features = np.hstack([triangles, normals, areas, angles])
-        face_neighborhood = np.array(trimesh.Trimesh(vertices=vertices, faces=faces, process=False).face_neighborhood)  # type: ignore
+        face_neighborhood = np.array(
+            trimesh.Trimesh(vertices=vertices, faces=faces,
+                            process=False).face_neighborhood)  # type: ignore
         target = torch.from_numpy(features[:, :9]).float()
         if self.use_start_stop:
-            features = np.concatenate([np.zeros((1, features.shape[1])), features], axis=0)
+            features = np.concatenate(
+                [np.zeros((1, features.shape[1])), features], axis=0)
             target = torch.cat([target, torch.ones(1, 9) * 0.5], dim=0)
             face_neighborhood = face_neighborhood + 1
         if self.only_backward_edges:
-            face_neighborhood = face_neighborhood[face_neighborhood[:, 1] > face_neighborhood[:, 0], :]
+            face_neighborhood = face_neighborhood[face_neighborhood[:, 1] >
+                                                  face_neighborhood[:, 0], :]
             # face_neighborhood = modify so that only edges in backward direction are present
         if self.ce_output:
             target = quantize_coordinates(target, self.num_tokens)
         return features, target, vertices, faces, face_neighborhood
 
     def get(self, idx):
-        features, target, _, _, face_neighborhood = self.get_all_features_for_shape(idx)
-        return GeometricData(x=torch.from_numpy(features).float(), y=target, edge_index=torch.from_numpy(face_neighborhood.T).long())
+        features, target, _, _, face_neighborhood = self.get_all_features_for_shape(
+            idx)
+        return GeometricData(x=torch.from_numpy(features).float(),
+                             y=target,
+                             edge_index=torch.from_numpy(
+                                 face_neighborhood.T).long())
 
 
 class TriangleNodesWithFaces(TriangleNodes):
 
-    def __init__(self, config, split, scale_augment, shift_augment, force_category):
-        super().__init__(config, split, scale_augment, shift_augment, force_category)
+    def __init__(self, config, split, scale_augment, shift_augment,
+                 force_category):
+        super().__init__(config, split, scale_augment, shift_augment,
+                         force_category)
 
     def get(self, idx):
-        features, target, vertices, faces, face_neighborhood = self.get_all_features_for_shape(idx)
-        return GeometricData(x=torch.from_numpy(features).float(), y=target,
-                             edge_index=torch.from_numpy(face_neighborhood.T).long(),
-                             num_vertices=vertices.shape[0], faces=torch.from_numpy(np.array(faces)).long())
+        features, target, vertices, faces, face_neighborhood = self.get_all_features_for_shape(
+            idx)
+        return GeometricData(x=torch.from_numpy(features).float(),
+                             y=target,
+                             edge_index=torch.from_numpy(
+                                 face_neighborhood.T).long(),
+                             num_vertices=vertices.shape[0],
+                             faces=torch.from_numpy(np.array(faces)).long())
 
 
 class TriangleNodesWithFacesDataloader(torch.utils.data.DataLoader):
 
-    def __init__(self, dataset, batch_size=1, shuffle=False, follow_batch=None, exclude_keys=None, **kwargs):
+    def __init__(self,
+                 dataset,
+                 batch_size=1,
+                 shuffle=False,
+                 follow_batch=None,
+                 exclude_keys=None,
+                 **kwargs):
         # Remove for PyTorch Lightning:
         kwargs.pop('collate_fn', None)
         # Save for PyTorch Lightning < 1.6:
@@ -139,7 +182,8 @@ class FaceCollator(GeometricCollator):
             num_vertices += batch[b_idx].num_vertices
 
         if isinstance(elem, BaseData):
-            return Batch.from_data_list(batch, self.follow_batch, self.exclude_keys)
+            return Batch.from_data_list(batch, self.follow_batch,
+                                        self.exclude_keys)
         elif isinstance(elem, torch.Tensor):
             return default_collate(batch)
         elif isinstance(elem, float):
@@ -160,13 +204,20 @@ class FaceCollator(GeometricCollator):
     def collate(self, batch):  # pragma: no cover
         raise NotImplementedError
 
+
 class TriangleNodesWithSequenceIndices(TriangleNodes):
 
     vq_depth_factor = 1
 
-    def __init__(self, config, split, scale_augment, shift_augment, force_category):
-        super().__init__(config, split, scale_augment=scale_augment, shift_augment=shift_augment, force_category=force_category)
-        vq_cfg = omegaconf.OmegaConf.load(Path(config.vq_resume).parents[1] / "config.yaml")
+    def __init__(self, config, split, scale_augment, shift_augment,
+                 force_category):
+        super().__init__(config,
+                         split,
+                         scale_augment=scale_augment,
+                         shift_augment=shift_augment,
+                         force_category=force_category)
+        vq_cfg = omegaconf.OmegaConf.load(
+            Path(config.vq_resume).parents[1] / "config.yaml")
         self.vq_depth = vq_cfg.embed_levels
         self.block_size = config.block_size
         max_inner_face_len = 0
@@ -175,40 +226,59 @@ class TriangleNodesWithSequenceIndices(TriangleNodes):
         for i in range(len(self.cached_vertices)):
             self.cached_vertices[i] = np.array(self.cached_vertices[i])
             for j in range(len(self.cached_faces[i])):
-                max_inner_face_len = max(max_inner_face_len, len(self.cached_faces[i][j]))
+                max_inner_face_len = max(max_inner_face_len,
+                                         len(self.cached_faces[i][j]))
         print('Longest inner face sequence', max_inner_face_len)
         assert max_inner_face_len == 3, f"Only triangles are supported, but found a face with {max_inner_face_len}."
         self.sequence_indices = []
         max_face_sequence_len = 0
         min_face_sequence_len = 1e7
         for i in range(len(self.cached_faces)):
-            sequence_len = len(self.cached_faces[i]) * self.vq_depth * self.vq_depth_factor + 1 + 1
+            sequence_len = len(self.cached_faces[i]
+                               ) * self.vq_depth * self.vq_depth_factor + 1 + 1
             max_face_sequence_len = max(max_face_sequence_len, sequence_len)
             min_face_sequence_len = min(min_face_sequence_len, sequence_len)
             self.sequence_indices.append((i, 0, False))
-            for j in range(config.sequence_stride, max(1, sequence_len - self.block_size + self.padding + 1), config.sequence_stride):  # todo: possible bug? +1 added recently
-                self.sequence_indices.append((i, j, True if split == 'train' else False))
-            if sequence_len > self.block_size: 
-                self.sequence_indices.append((i, sequence_len - self.block_size, False))
+            for j in range(
+                    config.sequence_stride,
+                    max(1, sequence_len - self.block_size + self.padding + 1),
+                    config.sequence_stride
+            ):  # todo: possible bug? +1 added recently
+                self.sequence_indices.append(
+                    (i, j, True if split == 'train' else False))
+            if sequence_len > self.block_size:
+                self.sequence_indices.append(
+                    (i, sequence_len - self.block_size, False))
         print('Length of', split, len(self.sequence_indices))
         print('Shortest face sequence', min_face_sequence_len)
         print('Longest face sequence', max_face_sequence_len)
 
     def len(self):
         return len(self.sequence_indices)
-    
+
     def get(self, idx):
         i, j, randomness = self.sequence_indices[idx]
         if randomness:
-            sequence_len = len(self.cached_faces[i]) * self.vq_depth * self.vq_depth_factor + 1 + 1
-            j = min(max(0, j + np.random.randint(-self.sequence_stride // 2, self.sequence_stride // 2)), sequence_len - self.block_size + self.padding)
-        features, target, _, _, face_neighborhood = self.get_all_features_for_shape(i)
-        return GeometricData(x=torch.from_numpy(features).float(), y=target, edge_index=torch.from_numpy(face_neighborhood.T).long(), js=torch.tensor(j).long())
-    
+            sequence_len = len(self.cached_faces[i]
+                               ) * self.vq_depth * self.vq_depth_factor + 1 + 1
+            j = min(
+                max(
+                    0, j + np.random.randint(-self.sequence_stride // 2,
+                                             self.sequence_stride // 2)),
+                sequence_len - self.block_size + self.padding)
+        features, target, _, _, face_neighborhood = self.get_all_features_for_shape(
+            i)
+        return GeometricData(x=torch.from_numpy(features).float(),
+                             y=target,
+                             edge_index=torch.from_numpy(
+                                 face_neighborhood.T).long(),
+                             js=torch.tensor(j).long())
+
     def plot_sequence_lenght_stats(self):
         sequence_lengths = []
         for i in range(len(self.cached_faces)):
-            sequence_len = len(self.cached_faces[i]) * self.vq_depth * self.vq_depth_factor + 1 + 1
+            sequence_len = len(self.cached_faces[i]
+                               ) * self.vq_depth * self.vq_depth_factor + 1 + 1
             sequence_lengths.append(sequence_len)
         import matplotlib.pyplot as plt
         plt.hist(sequence_lengths, bins=32)
@@ -217,20 +287,34 @@ class TriangleNodesWithSequenceIndices(TriangleNodes):
         return sequence_lengths
 
 
-class TriangleNodesWithFacesAndSequenceIndices(TriangleNodesWithSequenceIndices):
+class TriangleNodesWithFacesAndSequenceIndices(TriangleNodesWithSequenceIndices
+                                               ):
     vq_depth_factor = 3
-    def __init__(self, config, split, scale_augment, shift_augment, force_category):
-        super().__init__(config, split, scale_augment, shift_augment, force_category)
+
+    def __init__(self, config, split, scale_augment, shift_augment,
+                 force_category):
+        super().__init__(config, split, scale_augment, shift_augment,
+                         force_category)
 
     def get(self, idx):
         i, j, randomness = self.sequence_indices[idx]
         if randomness:
-            sequence_len = len(self.cached_faces[i]) * self.vq_depth * self.vq_depth_factor + 1 + 1
-            j = min(max(0, j + np.random.randint(-self.sequence_stride // 2, self.sequence_stride // 2)), sequence_len - self.block_size + self.padding)
-        features, target, vertices, faces, face_neighborhood = self.get_all_features_for_shape(i)
+            sequence_len = len(self.cached_faces[i]
+                               ) * self.vq_depth * self.vq_depth_factor + 1 + 1
+            j = min(
+                max(
+                    0, j + np.random.randint(-self.sequence_stride // 2,
+                                             self.sequence_stride // 2)),
+                sequence_len - self.block_size + self.padding)
+        features, target, vertices, faces, face_neighborhood = self.get_all_features_for_shape(
+            i)
         return GeometricData(x=torch.from_numpy(features).float(),
-                             y=target, mesh_name=self.names[i], edge_index=torch.from_numpy(face_neighborhood.T).long(),
-                             js=torch.tensor(j).long(), num_vertices=vertices.shape[0],
+                             y=target,
+                             mesh_name=self.names[i],
+                             edge_index=torch.from_numpy(
+                                 face_neighborhood.T).long(),
+                             js=torch.tensor(j).long(),
+                             num_vertices=vertices.shape[0],
                              faces=torch.from_numpy(np.array(faces)).long())
 
 
@@ -286,15 +370,20 @@ class Triangles(Dataset):
         vertices = self.cached_vertices[idx]
         faces = self.cached_faces[idx]
         feature_stack = create_feature_stack(vertices, faces)[0]
-        return torch.from_numpy(feature_stack).float(), torch.from_numpy(feature_stack[:, :9]).float()
+        return torch.from_numpy(feature_stack).float(), torch.from_numpy(
+            feature_stack[:, :9]).float()
 
 
 def normal(triangles):
     # The cross product of two sides is a normal vector
     if torch.is_tensor(triangles):
-        return torch.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0], dim=1)
+        return torch.cross(triangles[:, 1] - triangles[:, 0],
+                           triangles[:, 2] - triangles[:, 0],
+                           dim=1)
     else:
-        return np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0], axis=1)
+        return np.cross(triangles[:, 1] - triangles[:, 0],
+                        triangles[:, 2] - triangles[:, 0],
+                        axis=1)
 
 
 def area(triangles):
@@ -313,16 +402,27 @@ def angle(triangles):
     v_20 = -v_02
     v_21 = -v_12
     if torch.is_tensor(triangles):
-        return torch.stack([angle_between(v_01, v_02), angle_between(v_10, v_12), angle_between(v_20, v_21)], dim=1)
+        return torch.stack([
+            angle_between(v_01, v_02),
+            angle_between(v_10, v_12),
+            angle_between(v_20, v_21)
+        ],
+                           dim=1)
     else:
-        return np.stack([angle_between(v_01, v_02), angle_between(v_10, v_12), angle_between(v_20, v_21)], axis=1)
+        return np.stack([
+            angle_between(v_01, v_02),
+            angle_between(v_10, v_12),
+            angle_between(v_20, v_21)
+        ],
+                        axis=1)
 
 
 def angle_between(v0, v1):
     v0_u = unit_vector(v0)
     v1_u = unit_vector(v1)
     if torch.is_tensor(v0):
-        return torch.arccos(torch.clip(torch.einsum('ij,ij->i', v0_u, v1_u), -1.0, 1.0))
+        return torch.arccos(
+            torch.clip(torch.einsum('ij,ij->i', v0_u, v1_u), -1.0, 1.0))
     else:
         return np.arccos(np.clip(np.einsum('ij,ij->i', v0_u, v1_u), -1.0, 1.0))
 
@@ -338,7 +438,8 @@ def create_feature_stack(vertices, faces, num_tokens):
     vertices, faces = sort_vertices_and_faces(vertices, faces, num_tokens)
     # need more features: positions, angles, area, cross_product
     triangles = vertices[faces, :]
-    triangles, normals, areas, angles = create_feature_stack_from_triangles(triangles)
+    triangles, normals, areas, angles = create_feature_stack_from_triangles(
+        triangles)
     return triangles, normals, areas, angles, vertices, faces
 
 
@@ -346,4 +447,5 @@ def create_feature_stack_from_triangles(triangles):
     t_areas = area(triangles) * 1e3
     t_angles = angle(triangles) / float(np.pi)
     t_normals = unit_vector(normal(triangles))
-    return triangles.reshape(-1, 9), t_normals.reshape(-1, 3), t_areas.reshape(-1, 1), t_angles.reshape(-1, 3)
+    return triangles.reshape(-1, 9), t_normals.reshape(-1, 3), t_areas.reshape(
+        -1, 1), t_angles.reshape(-1, 3)
